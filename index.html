@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pile-Up Trainer</title>
+<style>
+:root{
+  --bg:#12140f; --panel:#1a1d16; --panel2:#21251c; --line:#33392a;
+  --amber:#f5a623; --amber-dim:#8a651a; --green:#5fd08a; --red:#ff6b6b;
+  --text:#e9e6da; --muted:#9aa08c;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){ }
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.4;}
+.wrap{max-width:640px;margin:0 auto;padding:20px 16px 48px;}
+h1{font-size:1.3rem;margin:4px 0 2px;letter-spacing:.02em;}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 18px;}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px;}
+.readout{
+  background:#0c0d09;border:1px solid var(--amber-dim);border-radius:8px;
+  padding:22px 16px;text-align:center;margin-bottom:14px;
+}
+.readout .callout{font:600 2rem/1.1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--amber);letter-spacing:.04em;min-height:2.4rem;}
+.readout .hint{color:var(--muted);font-size:.8rem;margin-top:6px;}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+button{
+  background:var(--amber);color:#1a1400;border:none;border-radius:7px;
+  padding:11px 18px;font-size:.95rem;font-weight:600;cursor:pointer;
+}
+button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line);}
+button:disabled{opacity:.45;cursor:default;}
+button:active{transform:translateY(1px);}
+input[type=text]{
+  flex:1;min-width:160px;background:#0c0d09;border:1px solid var(--line);color:var(--amber);
+  font:600 1.2rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em;
+  padding:10px 12px;border-radius:7px;text-transform:uppercase;
+}
+input[type=text]:focus{outline:2px solid var(--amber);outline-offset:1px;}
+.feedback{margin-top:10px;font-size:.92rem;min-height:1.4em;}
+.feedback.ok{color:var(--green);}
+.feedback.ko{color:var(--red);}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;}
+.field label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:4px;}
+.field .val{color:var(--amber);font-weight:600;}
+input[type=range]{width:100%;accent-color:var(--amber);}
+select{width:100%;background:#0c0d09;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;}
+.stat b{display:block;font-size:1.25rem;color:var(--amber);}
+.stat span{font-size:.72rem;color:var(--muted);}
+.timerbar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:10px 0 0;}
+.timerbar i{display:block;height:100%;background:var(--green);transition:width .25s linear;}
+.section-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px;}
+.history{font-size:.85rem;color:var(--muted);}
+.badge{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:2px 7px;font-size:.72rem;margin-left:6px;}
+footer{color:var(--muted);font-size:.75rem;text-align:center;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📡 Pile-Up Trainer <span style="color:var(--muted);font-weight:400;font-size:.85rem;">by F4CVQ</span></h1>
+  <p class="sub">Entraînement au décodage d'indicatifs radioamateur en alphabet international, dans les conditions d'un vrai pile-up SSB : bande passante filtrée, distorsion, fading indépendant par station, rappels, et reconnaissance de partiels dans tous les modes.</p>
+
+  <div class="panel">
+    <p class="section-title">Réglages</p>
+    <div class="settings-grid">
+      <div class="field">
+        <label>Stations simultanées : <span class="val" id="vStations">3</span></label>
+        <input type="range" id="stations" min="1" max="6" value="3" step="1">
+      </div>
+      <div class="field">
+        <label>Bruit ambiant : <span class="val" id="vNoise">30</span>%</label>
+        <input type="range" id="noise" min="0" max="100" value="30">
+      </div>
+      <div class="field">
+        <label>Distorsion : <span class="val" id="vDist">25</span>%</label>
+        <input type="range" id="dist" min="0" max="100" value="25">
+      </div>
+      <div class="field">
+        <label>Fading (QSB) : <span class="val" id="vFade">35</span>%</label>
+        <input type="range" id="fade" min="0" max="100" value="35">
+      </div>
+      <div class="field">
+        <label>Vitesse de base : <span class="val" id="vRate">1.0</span>x</label>
+        <input type="range" id="rate" min="0.6" max="1.8" value="1" step="0.1">
+      </div>
+      <div class="field">
+        <label>Rappels (call répété) : <span class="val" id="vRep">30</span>%</label>
+        <input type="range" id="rep" min="0" max="100" value="30">
+      </div>
+      <div class="field">
+        <label>Vitesse voix du trainer : <span class="val" id="vTrainerRate">1.5</span>x</label>
+        <input type="range" id="trainerRate" min="0.8" max="2.5" value="1.5" step="0.1">
+      </div>
+      <div class="field">
+        <label>Durée de session</label>
+        <select id="duration">
+          <option value="60">60 s</option>
+          <option value="120" selected>120 s</option>
+          <option value="180">180 s</option>
+          <option value="0">Illimitée</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Mode de copie</label>
+        <select id="mode">
+          <option value="normal" selected>Cible seule (call complet)</option>
+          <option value="full">Pile-up complet</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="readout">
+    <div class="callout" id="callout">— prêt —</div>
+    <div class="hint" id="hint">Tu es le DX : la station la plus forte est celle à copier, le reste du monde t'appelle aussi.</div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <button id="btnStart">▶ Démarrer la session</button>
+      <button id="btnPlay" class="secondary" disabled>🔊 Rejouer le tour</button>
+      <button id="btnStop" class="secondary" disabled>■ Arrêter</button>
+    </div>
+    <div class="timerbar"><i id="timerFill" style="width:100%"></i></div>
+    <div class="row" style="margin-top:12px;">
+      <input type="text" id="answer" placeholder="Indicatif entendu…" disabled autocomplete="off" spellcheck="false">
+      <button id="btnSubmit" disabled>Valider</button>
+    </div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+
+  <div class="panel">
+    <p class="section-title">Statistiques de session</p>
+    <div class="stats">
+      <div class="stat"><b id="sTotal">0</b><span>tours</span></div>
+      <div class="stat"><b id="sOk">0</b><span>corrects</span></div>
+      <div class="stat"><b id="sAcc">—</b><span>précision</span></div>
+      <div class="stat"><b id="sAvg">—</b><span>temps moy.</span></div>
+    </div>
+  </div>
+
+  <div class="panel history">
+    <p class="section-title">Journal de session (QSO)</p>
+    <div id="qsoLog" class="history">Le journal apparaît ici pendant la session.</div>
+  </div>
+
+  <div class="panel history" id="records">
+    <p class="section-title">Records enregistrés (sur cet appareil)</p>
+    <div id="recordsList">Aucun record pour l'instant — termine une session pour l'enregistrer.</div>
+  </div>
+
+  <footer>Bruit filtré 300–2700 Hz (bande SSB), distorsion (waveshaper), flutter multipath, fading (QSB indépendant par station) et un brouhaha de fond (courtes salves de bruit filtré, réellement simultanées) tournent en temps réel via Web Audio pour densifier l'ambiance pile-up. Une station sans réponse rappelle après quelques secondes ; un signal faible relance aussi plus souvent son appel. Dans tous les modes, si ce que tu tapes n'est pas l'indicatif complet mais correspond à un fragment d'un des appelants, le trainer épelle ce partiel suivi de « Only Please » d'une voix masculine grave, et la station concernée rappelle pour confirmer son indicatif complet. Sur bonne réponse, le trainer confirme à voix haute (« you are five nine, thank you »), à une vitesse réglable. Limite du navigateur : la synthèse vocale (les indicatifs prononcés) passe par une seule file d'attente globale, donc les appelants se succèdent toujours les uns après les autres, jamais réellement en simultané — aucune astuce Web Audio ne peut contourner ça côté navigateur.</footer>
+</div>
+
+<script>
+const NATO={A:'Alpha',B:'Bravo',C:'Charlie',D:'Delta',E:'Echo',F:'Foxtrot',G:'Golf',H:'Hotel',I:'India',J:'Juliett',K:'Kilo',L:'Lima',M:'Mike',N:'November',O:'Oscar',P:'Papa',Q:'Quebec',R:'Romeo',S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',X:'X-ray',Y:'Yankee',Z:'Zulu'};
+const DIGITS=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine'];
+const PREFIXES=['F','G','DL','EA','I','ON','HB9','PA','OE','SM','LA','OZ','SP','YO','9A','OK','HA','LX','GM','EI','CT','SV','TF','W','K','N','VE','JA','VK','ZL','PY','LU','ZS','4X','A6','VU'];
+
+function randCallsign(){
+  const p=PREFIXES[Math.floor(Math.random()*PREFIXES.length)];
+  const digit=Math.floor(Math.random()*10);
+  const len=Math.random()<0.5?2:3;
+  let suf='';
+  for(let i=0;i<len;i++) suf+=String.fromCharCode(65+Math.floor(Math.random()*26));
+  return p+digit+suf;
+}
+function phonetic(cs){
+  return cs.split('').map(ch=> /[0-9]/.test(ch)?DIGITS[+ch]:(NATO[ch]||ch)).join(' ');
+}
+
+// --- Audio (bruit / distorsion / fading / flutter) ---
+let actx=null, noiseSrc=null, noiseGain=null,
+    shaper=null, fadeGain=null, flutterOsc=null, flutterGain=null, bedRunning=false, fadeTimer=null;
+let fadeSeed=Math.random()*1000, fadeRateHz=0.09+Math.random()*0.14;
+
+function makeDistCurve(amount){
+  const k=amount*95, n=1024, curve=new Float32Array(n);
+  for(let i=0;i<n;i++){ const x=i*2/n-1; curve[i]=(1+k)*x/(1+k*Math.abs(x)); }
+  return curve;
+}
+function ensureAudio(){
+  if(actx) return;
+  actx=new (window.AudioContext||window.webkitAudioContext)();
+  // bruit de fond
+  const bufSize=actx.sampleRate*2;
+  const buf=actx.createBuffer(1,bufSize,actx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<bufSize;i++) d[i]=Math.random()*2-1;
+  noiseSrc=actx.createBufferSource(); noiseSrc.buffer=buf; noiseSrc.loop=true;
+  const hp=actx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=300;
+  const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2700;
+  noiseGain=actx.createGain(); noiseGain.gain.value=0;
+  noiseSrc.connect(hp); hp.connect(lp); lp.connect(noiseGain);
+
+  // bus commun -> distorsion -> flutter (trémolo rapide) -> fading (QSB lent) -> sortie
+  shaper=actx.createWaveShaper(); shaper.curve=makeDistCurve(0.25); shaper.oversample='2x';
+  flutterGain=actx.createGain(); flutterGain.gain.value=1;
+  flutterOsc=actx.createOscillator(); flutterOsc.type='sine'; flutterOsc.frequency.value=5.5;
+  const flutterDepth=actx.createGain(); flutterDepth.gain.value=0;
+  flutterOsc.connect(flutterDepth); flutterDepth.connect(flutterGain.gain);
+  flutterGain._depthNode=flutterDepth;
+  fadeGain=actx.createGain(); fadeGain.gain.value=1;
+  noiseGain.connect(shaper); shaper.connect(flutterGain); flutterGain.connect(fadeGain); fadeGain.connect(actx.destination);
+
+  noiseSrc.start(); flutterOsc.start();
+
+  fadeTimer=setInterval(()=>{
+    if(!bedRunning) return;
+    const depth=(+$('fade').value)/100*0.8;
+    const f=1-depth*(0.5+0.5*Math.sin(2*Math.PI*fadeRateHz*(actx.currentTime)+fadeSeed));
+    fadeGain.gain.setTargetAtTime(f,actx.currentTime,0.25);
+    // le bruit "monte" quand le signal s'évanouit (masquage réaliste)
+    const noisePct=+$('noise').value;
+    noiseGain.gain.setTargetAtTime(noisePct/100*0.14*(0.6+0.8*(1-f)),actx.currentTime,0.25);
+  },200);
+}
+function setBed(){
+  ensureAudio();
+  const noisePct=+$('noise').value, distPct=+$('dist').value;
+  noiseGain.gain.setTargetAtTime(noisePct/100*0.14,actx.currentTime,0.2);
+  shaper.curve=makeDistCurve(distPct/100);
+  flutterGain._depthNode.gain.setTargetAtTime(distPct/100*0.35,actx.currentTime,0.2);
+  bedRunning=true;
+}
+function stopBed(){
+  if(!actx) return;
+  noiseGain.gain.setTargetAtTime(0,actx.currentTime,0.15);
+  bedRunning=false;
+}
+
+// Texture de "brouhaha" : de courtes salves de bruit filtré, réellement
+// simultanées (Web Audio), pour donner l'impression de plusieurs voix qui
+// se chevauchent en fond — la synthèse vocale, elle, reste sérialisée par
+// le navigateur (une seule file d'attente globale, incontournable).
+function playBabbleBurst(){
+  if(!actx||!bedRunning) return;
+  const t0=actx.currentTime, dur=0.15+Math.random()*0.25;
+  const src=actx.createBufferSource(); src.buffer=noiseSrc.buffer; src.loop=false;
+  const bp=actx.createBiquadFilter(); bp.type='bandpass';
+  bp.frequency.value=300+Math.random()*1800; bp.Q.value=3+Math.random()*4;
+  const g=actx.createGain(); g.gain.setValueAtTime(0,t0);
+  g.gain.linearRampToValueAtTime(0.04+Math.random()*0.05,t0+0.02);
+  g.gain.linearRampToValueAtTime(0,t0+dur);
+  src.connect(bp); bp.connect(g); g.connect(actx.destination);
+  src.start(t0); src.stop(t0+dur+0.05);
+}
+function scheduleBabble(nStations){
+  if(nStations<2) return;
+  const bursts=nStations*3;
+  for(let i=0;i<bursts;i++) setTimeout(playBabbleBurst,Math.random()*1800);
+}
+
+
+// --- Voix ---
+let voices=[], maleVoices=[], femaleVoices=[];
+const FEMALE_HINTS=['female','woman','samantha','victoria','karen','tessa','moira','fiona','amelie','amélie','audrey','céline','celine','marie','julie','emma','ava','zira','susan','anna','ellen','kate','lucy','sara','elise','chantal'];
+const MALE_HINTS=['male','man','daniel','thomas','fred','alex','david','george','oliver','james','ryan','tom','paul','mark','peter','nicolas','guillaume','henri','yannick','thierry','bruno'];
+function classify(v){
+  const n=(v.name+' '+(v.voiceURI||'')).toLowerCase();
+  if(FEMALE_HINTS.some(h=>n.includes(h))) return 'f';
+  if(MALE_HINTS.some(h=>n.includes(h))) return 'm';
+  return null;
+}
+function loadVoices(){
+  voices=speechSynthesis.getVoices();
+  const en=voices.filter(v=>/^en/i.test(v.lang));
+  const pool=en.length?en:voices;
+  maleVoices=pool.filter(v=>classify(v)==='m');
+  femaleVoices=pool.filter(v=>classify(v)==='f');
+}
+loadVoices();
+if('onvoiceschanged' in speechSynthesis) speechSynthesis.onvoiceschanged=loadVoices;
+function pickVoice(g){
+  const pool=g==='m'?maleVoices:femaleVoices;
+  return pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+}
+
+function fadeFactorAt(tSec,depthScale,seed,rate){
+  const depth=(+$('fade').value)/100*0.8*depthScale;
+  return 1-depth*(0.5+0.5*Math.sin(2*Math.PI*rate*tSec+seed));
+}
+
+function scheduleStation(cs,i,isTarget,distPct,baseRate,genderStart,repPct,nowSec,fSeed,fRate){
+  const variance=distPct/100;
+  const fade=fadeFactorAt(nowSec+(isTarget?0:0.4),isTarget?0.45:1,fSeed,fRate);
+  const gender=(i%2===0)?genderStart:(genderStart==='m'?'f':'m');
+  const voice=pickVoice(gender);
+  const genderPitch=gender==='m'?-0.16:0.18;
+  const rate=Math.min(2,Math.max(0.5,baseRate*(1+(isTarget?variance*0.15:(Math.random()-0.5)*variance*1.4))));
+  const pitch=Math.min(2,Math.max(0,1+genderPitch+(isTarget?0:(Math.random()-0.5)*variance*0.6)));
+  const baseVol=isTarget?1:0.4+Math.random()*0.25;
+  const volume=Math.min(1,Math.max(0.05,baseVol*fade));
+  // un signal faible relance plus volontiers son appel
+  const effRepPct=Math.min(95,repPct*(1+(1-fade)*0.8));
+  const repeats=1+((Math.random()*100<effRepPct)?(Math.random()<0.6?1:2):0);
+  let t=isTarget?0:Math.floor(Math.random()*300);
+  for(let r=0;r<repeats;r++){
+    const u=new SpeechSynthesisUtterance(phonetic(cs));
+    u.rate=Math.min(2,Math.max(0.5,rate*(1+(r>0?(Math.random()-0.5)*0.08:0))));
+    u.pitch=pitch;
+    u.volume=volume*(r>0?0.92:1);
+    if(voice) u.voice=voice;
+    setTimeout(()=>speechSynthesis.speak(u),t);
+    t+=500+Math.random()*450;
+  }
+}
+
+let currentTarget='', currentCalls=[], pendingCall=null;
+function speakRound(nStations,distPct,baseRate){
+  speechSynthesis.cancel();
+  const repPct=+$('rep').value, mode=$('mode').value;
+  const nowSec=actx?actx.currentTime:0;
+  const genderStart=Math.random()<0.5?'m':'f';
+  const calls=[]; for(let i=0;i<nStations;i++) calls.push(randCallsign());
+  currentCalls=calls; currentTarget=calls[0]; pendingCall=null;
+  calls.forEach((cs,i)=>scheduleStation(cs,i,i===0,distPct,baseRate,genderStart,repPct,nowSec,Math.random()*1000,0.06+Math.random()*0.22));
+  scheduleBabble(nStations);
+  document.getElementById('callout').textContent='… en écoute …';
+  $('hint').textContent = mode==='full'
+    ? `Tape tous les indicatifs entendus (${nStations}), séparés par des espaces. Un fragment reconnu (2 car. mini) déclenche un appel de partiel.`
+    : 'Tu es le DX : la station la plus forte est celle à copier — tape un fragment reconnu (2 car. mini) pour faire rappeler la station, puis tape son indicatif complet pour valider.';
+  $('answer').placeholder = mode==='full' ? 'Tous les indicatifs, séparés par un espace…' : 'Indicatif entendu (ou partiel)…';
+}
+
+function speakPartialCall(partial,matchCall,onDone){
+  speechSynthesis.cancel();
+  const req=new SpeechSynthesisUtterance(phonetic(partial)+' Only Please');
+  req.rate=Math.min(2.5,+$('trainerRate').value); req.pitch=0.55; req.volume=1;
+  const mv=pickVoice('m'); if(mv) req.voice=mv;
+  else { const enV=voices.find(v=>/^en/i.test(v.lang)); if(enV) req.voice=enV; }
+  if(matchCall){
+    req.onend=()=>{
+      const resp=new SpeechSynthesisUtterance(phonetic(matchCall));
+      const distPct=+$('dist').value;
+      resp.rate=Math.min(2,Math.max(0.5,(+$('rate').value)*(1+(Math.random()-0.5)*distPct/100)));
+      resp.pitch=Math.min(2,Math.max(0,1+(Math.random()<0.5?-0.16:0.18)));
+      resp.volume=0.85;
+      const rv=pickVoice(Math.random()<0.5?'m':'f'); if(rv) resp.voice=rv;
+      if(onDone) resp.onend=onDone;
+      speechSynthesis.speak(resp);
+    };
+  } else if(onDone){ req.onend=onDone; }
+  speechSynthesis.speak(req);
+}
+function announcePartialQueue(queue,onAllDone){
+  if(!queue.length){ if(onAllDone) onAllDone(); return; }
+  const next=queue.shift();
+  speakPartialCall(next.partial,next.call,()=>announcePartialQueue(queue,onAllDone));
+}
+function speakConfirmation(call,onDone){
+  speechSynthesis.cancel();
+  const text=(call?phonetic(call)+', ':'')+'You are five nine, thank you';
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=Math.min(2.5,+$('trainerRate').value); u.pitch=0.55; u.volume=1;
+  const mv=pickVoice('m'); if(mv) u.voice=mv;
+  else { const enV=voices.find(v=>/^en/i.test(v.lang)); if(enV) u.voice=enV; }
+  if(onDone) u.onend=onDone;
+  speechSynthesis.speak(u);
+}
+
+function recall(){
+  if(!sessionOn) return;
+  const nowSec=actx?actx.currentTime:0;
+  scheduleStation(pendingCall||currentTarget,0,true,+$('dist').value,+$('rate').value,Math.random()<0.5?'m':'f',0,nowSec,Math.random()*1000,0.06+Math.random()*0.22);
+  scheduleIdle();
+}
+let idleTimer=null;
+function scheduleIdle(){
+  clearTimeout(idleTimer);
+  idleTimer=setTimeout(recall,4500+Math.random()*2500);
+}
+
+// --- Jeu ---
+let sessionOn=false,total=0,ok=0,times=[],roundStart=0,sessionEnd=0,timerId=null,durationSec=120;
+const $=id=>document.getElementById(id);
+
+function updSlidersLabels(){
+  $('vStations').textContent=$('stations').value;
+  $('vNoise').textContent=$('noise').value;
+  $('vDist').textContent=$('dist').value;
+  $('vFade').textContent=$('fade').value;
+  $('vRate').textContent=parseFloat($('rate').value).toFixed(1);
+  $('vRep').textContent=$('rep').value;
+  $('vTrainerRate').textContent=parseFloat($('trainerRate').value).toFixed(1);
+}
+['stations','noise','dist','fade','rate','rep','trainerRate'].forEach(id=>$(id).addEventListener('input',()=>{
+  updSlidersLabels();
+  if(bedRunning) setBed();
+}));
+updSlidersLabels();
+
+function newRound(){
+  speakRound(+$('stations').value,+$('dist').value,+$('rate').value);
+  roundStart=performance.now();
+  $('answer').value=''; $('answer').disabled=false; $('answer').focus();
+  $('btnSubmit').disabled=false; $('feedback').textContent=''; $('feedback').className='feedback';
+  scheduleIdle();
+}
+
+let qsoLines=[];
+function logQso(line,ok2){
+  qsoLines.unshift(`<span style="color:${ok2?'var(--green)':'var(--red)'}">${ok2?'✔':'✘'}</span> ${line}`);
+  qsoLines=qsoLines.slice(0,15);
+  $('qsoLog').innerHTML=qsoLines.join('<br>');
+}
+
+function finishRound(correct,label,dt,nextDelay,confirmedCall){
+  $('feedback').className='feedback '+(correct?'ok':'ko');
+  $('feedback').textContent=label;
+  total++; times.push(dt); if(correct) ok++;
+  updStats();
+  $('answer').disabled=true; $('btnSubmit').disabled=true;
+  if(correct){
+    speakConfirmation(confirmedCall,()=>{ if(sessionOn) newRound(); });
+  } else {
+    setTimeout(()=>{ if(sessionOn) newRound(); },nextDelay!==undefined?nextDelay:900);
+  }
+}
+
+function submitAnswer(){
+  if(!sessionOn) return;
+  clearTimeout(idleTimer);
+  const mode=$('mode').value;
+  const raw=$('answer').value.trim().toUpperCase();
+  const dt=(performance.now()-roundStart)/1000;
+  const nowStr=new Date().toLocaleTimeString('fr-FR');
+
+  if(mode==='full'){
+    const tokens=raw.split(/[\s,;]+/).filter(Boolean);
+    const pool=currentCalls.map(c=>c.toUpperCase());
+    let matched=0; const partialQueue=[];
+    tokens.forEach(tk=>{
+      let idx=pool.indexOf(tk);
+      if(idx>=0){ matched++; pool[idx]=null; return; }
+      if(tk.length>=2){
+        idx=pool.findIndex(c=>c&&c.includes(tk));
+        if(idx>=0){ matched++; partialQueue.push({partial:tk,call:currentCalls[idx]}); pool[idx]=null; }
+      }
+    });
+    const correct=matched===currentCalls.length;
+    const label=`${matched}/${currentCalls.length} indicatifs corrects (${dt.toFixed(1)}s) — attendu : ${currentCalls.join(', ')}`;
+    logQso(`${nowStr} — pile-up ${matched}/${currentCalls.length}${partialQueue.length?' (dont '+partialQueue.length+' partiel(s))':''}`,correct);
+    total++; times.push(dt); ok+=matched/currentCalls.length;
+    $('feedback').className='feedback '+(correct?'ok':'ko');
+    $('feedback').textContent=label;
+    updStats();
+    $('answer').disabled=true; $('btnSubmit').disabled=true;
+    const goNext=()=>{ if(sessionOn) newRound(); };
+    if(partialQueue.length){
+      announcePartialQueue(partialQueue.slice(),()=>{ if(correct) speakConfirmation(null,goNext); else goNext(); });
+    } else if(correct){
+      speakConfirmation(null,goNext);
+    } else {
+      setTimeout(goNext,900);
+    }
+    return;
+  }
+
+  // --- mode "cible seule" ---
+  const guess=raw.replace(/\s+/g,'');
+  if(pendingCall){
+    const truth=pendingCall.toUpperCase();
+    pendingCall=null;
+    if(guess===truth){
+      logQso(`${nowStr} — confirmation ${truth}`,true);
+      finishRound(true,`✔ Confirmé — ${truth} (${dt.toFixed(1)}s)`,dt,undefined,truth);
+    } else {
+      logQso(`${nowStr} — confirmation attendue ${truth}, reçu ${guess||'∅'}`,false);
+      finishRound(false,`✘ Confirmation attendue : ${truth} — reçu : ${guess||'(vide)'}`,dt);
+    }
+    return;
+  }
+  const truth=currentTarget.toUpperCase();
+  if(guess===truth){
+    logQso(`${nowStr} — ${truth} — ${guess}`,true);
+    finishRound(true,`✔ Correct (${dt.toFixed(1)}s)`,dt,undefined,truth);
+    return;
+  }
+  const matchCall=guess.length>=2 ? currentCalls.find(c=>c.toUpperCase().includes(guess)) : null;
+  if(matchCall){
+    pendingCall=matchCall;
+    logQso(`${nowStr} — partiel ${guess} → rappel de ${matchCall}`,true);
+    $('feedback').className='feedback';
+    $('feedback').textContent=`… la station rappelle pour confirmer — tape l'indicatif complet que tu entends.`;
+    $('answer').value=''; $('answer').focus();
+    speakPartialCall(guess,matchCall);
+    scheduleIdle();
+    return;
+  }
+  logQso(`${nowStr} — ${truth} — ${guess||'∅'}`,false);
+  finishRound(false,`✘ Attendu : ${truth} — reçu : ${guess||'(vide)'}`,dt);
+}
+
+function updStats(){
+  $('sTotal').textContent=total;
+  $('sOk').textContent=ok;
+  $('sAcc').textContent=total?Math.round(ok/total*100)+'%':'—';
+  $('sAvg').textContent=times.length?(times.reduce((a,b)=>a+b,0)/times.length).toFixed(1)+'s':'—';
+}
+
+function startSession(){
+  sessionOn=true; total=0; ok=0; times=[]; qsoLines=[];
+  $('qsoLog').textContent='Le journal apparaît ici pendant la session.';
+  durationSec=+$('duration').value;
+  fadeSeed=Math.random()*1000; fadeRateHz=0.09+Math.random()*0.14;
+  setBed();
+  $('btnStart').disabled=true; $('btnStop').disabled=false; $('btnPlay').disabled=false;
+  updStats();
+  if(durationSec>0){
+    sessionEnd=performance.now()+durationSec*1000;
+    $('timerFill').style.width='100%';
+    timerId=setInterval(()=>{
+      const left=Math.max(0,sessionEnd-performance.now());
+      $('timerFill').style.width=(left/(durationSec*1000)*100)+'%';
+      if(left<=0) endSession();
+    },200);
+  } else {
+    $('timerFill').style.width='100%';
+  }
+  newRound();
+}
+
+function endSession(){
+  sessionOn=false;
+  speechSynthesis.cancel(); stopBed(); clearTimeout(idleTimer);
+  clearInterval(timerId);
+  $('btnStart').disabled=false; $('btnStop').disabled=true; $('btnPlay').disabled=true;
+  $('answer').disabled=true; $('btnSubmit').disabled=true;
+  $('callout').textContent='— session terminée —';
+  if(total>0) saveRecord();
+}
+
+function saveRecord(){
+  const acc=Math.round(ok/total*100);
+  const avg=times.reduce((a,b)=>a+b,0)/times.length;
+  let recs=[];
+  try{ recs=JSON.parse(localStorage.getItem('pileup_records')||'[]'); }catch(e){}
+  recs.unshift({date:new Date().toLocaleString('fr-FR'),total,ok:Math.round(ok*10)/10,acc,avg:avg.toFixed(1),
+    stations:$('stations').value,dur:durationSec,mode:$('mode').value,
+    noise:$('noise').value,dist:$('dist').value,fade:$('fade').value});
+  recs=recs.slice(0,8);
+  try{ localStorage.setItem('pileup_records',JSON.stringify(recs)); }catch(e){}
+  renderRecords();
+}
+function renderRecords(){
+  let recs=[];
+  try{ recs=JSON.parse(localStorage.getItem('pileup_records')||'[]'); }catch(e){}
+  if(!recs.length) return;
+  const modeLbl={normal:'cible',full:'pile-up complet'};
+  $('recordsList').innerHTML=recs.map(r=>
+    `${r.date} — ${r.ok}/${r.total} (${r.acc}%) · moy ${r.avg}s <span class="badge">${r.stations} stations</span> <span class="badge">${r.dur>0?r.dur+'s':'illimité'}</span> <span class="badge">${modeLbl[r.mode]||r.mode}</span> <span class="badge">bruit ${r.noise}% · dist ${r.dist}% · fade ${r.fade}%</span>`
+  ).join('<br><br>');
+}
+renderRecords();
+
+$('btnStart').addEventListener('click',startSession);
+$('btnStop').addEventListener('click',endSession);
+$('btnPlay').addEventListener('click',()=>{ if(sessionOn) newRound(); });
+$('btnSubmit').addEventListener('click',submitAnswer);
+$('answer').addEventListener('keydown',e=>{ if(e.key==='Enter') submitAnswer(); });
+</script>
+</body>
+</html>
